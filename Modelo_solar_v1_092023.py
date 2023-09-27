@@ -32,110 +32,58 @@ _out: salida
 _s: sufijo solar
 
 '''
-#%%
-import numpy as np
-import pandas as pd
-# import pvlib as pv
-import matplotlib.pyplot as plt
-
-import pvlib
-
 
 #%%
 
 # Ruta del archivo TMY
 
-shit = pvlib.tmy.readtmy3('cebal\anaconda3\lib\site-packages\pvlib\data\DHTMY_E_T6854N.csv', coerce_year=None, recolumn=True)
+# shit = pvlib.tmy.readtmy3('cebal\anaconda3\lib\site-packages\pvlib\data\DHTMY_E_T6854N.csv', coerce_year=None, recolumn=True)
 
 #%%
 
-import pvlib
+# import pvlib
 from pvlib import location
 from pvlib import irradiance
 from pvlib import tracking
+from pvlib import solarposition
 from pvlib.iotools import read_tmy3
 import pandas as pd
 from matplotlib import pyplot as plt
 import pathlib
-
-# get full path to the data directory
-DATA_DIR = pathlib.Path(pvlib.__file__).parent / 'data'
-
-# get TMY3 dataset
-tmy, metadata = read_tmy3('pt06_iCeballos\DHTMY_E_T6854N.csv' coerce_year=1990)
-# TMY3 datasets are right-labeled (AKA "end of interval") which means the last
-# interval of Dec 31, 23:00 to Jan 1 00:00 is labeled Jan 1 00:00. When rolling
-# up hourly irradiance to monthly insolation, a spurious January value is
-# calculated from that last row, so we'll just go ahead and drop it here:
-tmy = tmy.iloc[:-1, :]
-
-# create location object to store lat, lon, timezone
-location = location.Location.from_tmy(metadata)
-
-# calculate the necessary variables to do transposition.  Note that solar
-# position doesn't depend on array orientation, so we just calculate it once.
-# Note also that TMY datasets are right-labeled hourly intervals, e.g. the
-# 10AM to 11AM interval is labeled 11.  We should calculate solar position in
-# the middle of the interval (10:30), so we subtract 30 minutes:
-times = tmy.index - pd.Timedelta('30min')
-solar_position = location.get_solarposition(times)
-# but remember to shift the index back to line up with the TMY data:
-solar_position.index += pd.Timedelta('30min')
+import numpy as np
 
 
-# create a helper function to do the transposition for us
-def calculate_poa(tmy, solar_position, surface_tilt, surface_azimuth):
-    # Use the get_total_irradiance function to transpose the irradiance
-    # components to POA irradiance
-    poa = irradiance.get_total_irradiance(
-        surface_tilt=surface_tilt,
-        surface_azimuth=surface_azimuth,
-        dni=tmy['DNI'],
-        ghi=tmy['GHI'],
-        dhi=tmy['DHI'],
-        solar_zenith=solar_position['apparent_zenith'],
-        solar_azimuth=solar_position['azimuth'],
-        model='isotropic')
-    return poa['poa_global']  # just return the total in-plane irradiance
+latitude, longitude, tz =32.877394,	-117.233874, 'America/Los_Angeles'
+surface_tilt = 10
+surface_azimuth = 180 # pvlib uses 0=North, 90=East, 180=South, 270=West convention
+albedo = 0.2
+
+# specify time range.
+start = pd.Timestamp(datetime.date.today(), tz='UTC') #00 UTC
+end = start + pd.Timedelta(hours=36)
+irrad_vars = ['ghi', 'dni', 'dhi']
 
 
-# create a dataframe to keep track of our monthly insolations
-df_monthly = pd.DataFrame()
+dt = 1
+tf = 3600
+t = np.arange(0,tf+dt,dt)
+n_t = len(t)
 
-# fixed-tilt:
-for tilt in range(0, 50, 10):
-    # we will hardcode azimuth=180 (south) for all fixed-tilt cases
-    poa_irradiance = calculate_poa(tmy, solar_position, tilt, 180)
-    column_name = f"FT-{tilt}"
-    # TMYs are hourly, so we can just sum up irradiance [W/m^2] to get
-    # insolation [Wh/m^2]:
-    df_monthly[column_name] = poa_irradiance.resample('m').sum()
 
-# single-axis tracking:
-orientation = tracking.singleaxis(solar_position['apparent_zenith'],
-                                  solar_position['azimuth'],
-                                  axis_tilt=0,  # flat array
-                                  axis_azimuth=180,  # south-facing azimuth
-                                  max_angle=60,  # a common maximum rotation
-                                  backtrack=True,  # backtrack for a c-Si array
-                                  gcr=0.4)  # a common ground coverage ratio
+# area total disponible en terreno
 
-poa_irradiance = calculate_poa(tmy,
-                               solar_position,
-                               orientation['surface_tilt'],
-                               orientation['surface_azimuth'])
-df_monthly['SAT-0.4'] = poa_irradiance.resample('m').sum()
+a_total = 100
 
-# calculate the percent difference from GHI
-ghi_monthly = tmy['GHI'].resample('m').sum()
-df_monthly = 100 * (df_monthly.divide(ghi_monthly, axis=0) - 1)
+l1_p = 2
+l2_p = 2
+a_p = l1_p*l2_p
+radiacion_test = 100
+r_s = radiacion_test*np.ones(n_t)
+r_p = r_s*a_p
 
-df_monthly.plot()
-plt.xlabel('Month of Year')
-plt.ylabel('Monthly Transposition Gain [%]')
-plt.show()
-
-#%%
+G = 1
+i_sc_stc = 1
+i_sc_p = G*(i_sc_stc)
 
 # Leer el archivo TMY
 tmy_data, metadata = solarposition.get_solarposition(archivo_tmy, 32.2, -111)
@@ -163,7 +111,23 @@ radiacion_total = irradiance.get_total_irradiance(
 print("Fechas:", fechas)
 print("Radiación total:", radiacion_total)
 print("Temperatura ambiente:", temperatura_ambiente)
+#%%
 
+
+def loctime (latitude, longitude, tz, altitude, place,\
+             startdate, enddate,freq):
+    loc = location(latitude, longitude, tz, altitude, place)
+    time = pd.DatetimeIndex(start=startdate,end=enddate,freq,tz)
+    return loc,time
+
+
+def clearSky (time,loc):
+    cs = loc.get_clearsky(time)
+    return cs
+
+
+
+#%%
 
 #%%
 # Metodo pyephem y nrel son mas precisos, pero pyephem es mas rapido
@@ -221,32 +185,6 @@ suelo = pv.irradiance.get_ground_diffuse(40, irrad_data['ghi'], surface_type=sup
 #     plt.legend()
 #     plt.ylabel('Irradiance (W/m^2)')
 
-#%%
-dt = 1
-tf = 3600
-t = np.arange(0,tf+dt,dt)
-n_t = len(t)
 
-
-# area total disponible en terreno
-
-a_total = 100
-
-l1_p = 2
-l2_p = 2
-a_p = l1_p*l2_p
-radiacion_test = 100
-r_s = radiacion_test*np.ones(n_t)
-r_p = r_s*a_p
-
-G = 1
-i_sc_p = G*(i_sc_stc)
-
-
-
-# importar radiacion
-# sacar inclinacion de paneles, incluyendo sus dimensiones y separacoin entre ellos
-# con el area util ver cuantos paneles caben, estableecer numero de paneles
-# tomar arreglo y construir paneles
 
 
