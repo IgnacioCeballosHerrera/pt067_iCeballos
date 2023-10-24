@@ -9,11 +9,13 @@ Created on Wed Sep 27 07:42:55 2023
 from pvlib import location
 from pvlib import irradiance
 from pvlib import pvsystem
+from pvlib import inverter
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 import pvlib
 from datetime import datetime
+
 
 # Fecha escogida
 mes = 12
@@ -79,18 +81,76 @@ for k in d_date:
 sandia_modules = pvsystem.retrieve_sam('SandiaMod')
 panel = sandia_modules['Kyocera_Solar_KD205GX_LP__2008__E__']
 
+# CAMBIAR NANs por 0
+# Crea una lista de OrderedDict, que pueden ser tratados como dataframes para extraer los valores
 out_panel = []
 for k in d_ghi:
     out_panel.append(pvlib.pvsystem.sapm(k, t_panel, panel))
+# a = out_panel[0] Asi se sacan los valores
+# b = a['i_mp']
 
+v_out_panel = out_panel[9]['p_mp']
+p_out_panel = out_panel[9]['v_mp']
 
-#%%
+ns = 1
+np = 1
 
+v_out_arreglo = ns*v_out_panel
+p_out_arreglo = np*ns*p_out_panel
 
 # Modulos con inversores
 cec_inverters = pvlib.pvsystem.retrieve_sam('cecinverter')
 #cols = [col for col in cec_inverters.columns if 'Xantrex' in col] # use this to look for strings in the catalog, it's huge
 inversor = cec_inverters['Schneider_Electric_Solar_Inverters_USA___Inc___GT100_480__480V_']
+#%%
+a = pvlib.inverter.sandia(v_out_arreglo, p_out_arreglo, inversor)
+
+# pvlib.inverter.sandia(v_dc, p_dc, inverter)
+
+P_inv = 2
+P_inv_dc = 2
+P_dc = p_out_arreglo
+
+# Pac = Pinv_ac*(P_dc - P_inv)**2/(P_inv_dc -P_inv)
+
+#%%
+def tempSimplifiedStationary (T_air,G_m,T_NOCT):
+    '''
+    Gm: irradiacion que recibe el modulo [W/m2]
+    
+    '''
+    return T_air + ((T_NOCT - 20 )/800)*G_m
+
+def ac transformation(vmp_dc, pmp_dc, inverter):
+    return pvlib.pvsystem.snlinverter(vmp_dc, pmp_dc, inverter)
+
+def dc production
+    (effective_irradiance, temp_cell, module,N_s,N_p):
+    dc=pvlib.pvsystem.sapm(effective_irradiance,temp_cell,
+    module)
+    dc[’p_mp’]= N_s*N_p*dc[’p_mp’]
+    dc[’v_mp’]=N_s*dc[’v_mp’]
+    return dc
+
+def snlinverter(self, v_dc, p_dc):
+        """Uses :func:`snlinverter` to calculate AC power based on
+        ``self.inverter_parameters`` and the input parameters.
+
+        Parameters
+        ----------
+        See pvsystem.snlinverter for details
+
+        Returns
+        -------
+        See pvsystem.snlinverter for details
+        """
+        return snlinverter(v_dc, p_dc, self.inverter_parameters)
+    
+
+Pac = Pinv_ac*(P_dc - P_inv)**2/(P_inv_dc_P_inv)
+#%%
+
+
 
 # Es necesario calcular una tempratura de panel, por ahora se asume ambiente
 # gen_panel = pvlib.pvsystem.sapm(d_ghi[9], d_temp[9], panel)
