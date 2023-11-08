@@ -84,15 +84,32 @@ panel = sandia_modules['Kyocera_Solar_KD205GX_LP__2008__E__']
 # CAMBIAR NANs por 0
 # Crea una lista de OrderedDict, que pueden ser tratados como dataframes para extraer los valores
 out_panel = []
+v_out_panel = []
+p_out_panel = []
 for k in d_ghi:
-    out_panel.append(pvlib.pvsystem.sapm(k, t_panel, panel))
-# a = out_panel[0] Asi se sacan los valores
-# b = a['i_mp']
+    # Extraccion de salida del panel con limpieza de nans
+    out_k = pd.Series(pvlib.pvsystem.sapm(k, t_panel, panel))
+    out_k.fillna(0,inplace=True)
+    out_panel.append(out_k)
+    # Calculo de voltaje y potencia de salida para cada hora
+    v_out_k = out_k['v_mp']
+    p_out_k = out_k['p_mp']
+    v_out_panel.append(v_out_k)
+    p_out_panel.append(p_out_k)
+    
+v_out_panel = np.array(v_out_panel)
+p_out_panel = np.array(p_out_panel)
+#%%
+plt.figure()
+plt.plot(v_out_panel)
+plt.title('Voltaje un panel')
 
-v_out_panel = out_panel[9]['p_mp']
-p_out_panel = out_panel[9]['v_mp']
-
-ns = 1
+plt.figure()
+plt.plot(p_out_panel)
+plt.title('Potencia un panel')
+#%%
+# Numero de paneles en serie y paralelo
+ns = 15
 np = 1
 
 v_out_arreglo = ns*v_out_panel
@@ -103,73 +120,17 @@ cec_inverters = pvlib.pvsystem.retrieve_sam('cecinverter')
 #cols = [col for col in cec_inverters.columns if 'Xantrex' in col] # use this to look for strings in the catalog, it's huge
 inversor = cec_inverters['Schneider_Electric_Solar_Inverters_USA___Inc___GT100_480__480V_']
 #%%
-a = pvlib.inverter.sandia(v_out_arreglo, p_out_arreglo, inversor)
+# Devuelve potencia AC
+p_ac = pvlib.inverter.sandia(v_out_arreglo, p_out_arreglo, inversor)
+
+plt.figure()
+plt.plot(p_ac)
+plt.ylabel('[W]')
+plt.title('Potencia ac salida inversor')
 
 # pvlib.inverter.sandia(v_dc, p_dc, inverter)
 
-P_inv = 2
-P_inv_dc = 2
-P_dc = p_out_arreglo
 
-# Pac = Pinv_ac*(P_dc - P_inv)**2/(P_inv_dc -P_inv)
-
-#%%
-def tempSimplifiedStationary (T_air,G_m,T_NOCT):
-    '''
-    Gm: irradiacion que recibe el modulo [W/m2]
-    
-    '''
-    return T_air + ((T_NOCT - 20 )/800)*G_m
-
-def ac transformation(vmp_dc, pmp_dc, inverter):
-    return pvlib.pvsystem.snlinverter(vmp_dc, pmp_dc, inverter)
-
-def dc production
-    (effective_irradiance, temp_cell, module,N_s,N_p):
-    dc=pvlib.pvsystem.sapm(effective_irradiance,temp_cell,
-    module)
-    dc[’p_mp’]= N_s*N_p*dc[’p_mp’]
-    dc[’v_mp’]=N_s*dc[’v_mp’]
-    return dc
-
-def snlinverter(self, v_dc, p_dc):
-        """Uses :func:`snlinverter` to calculate AC power based on
-        ``self.inverter_parameters`` and the input parameters.
-
-        Parameters
-        ----------
-        See pvsystem.snlinverter for details
-
-        Returns
-        -------
-        See pvsystem.snlinverter for details
-        """
-        return snlinverter(v_dc, p_dc, self.inverter_parameters)
-    
-
-Pac = Pinv_ac*(P_dc - P_inv)**2/(P_inv_dc_P_inv)
-#%%
-
-
-
-# Es necesario calcular una tempratura de panel, por ahora se asume ambiente
-# gen_panel = pvlib.pvsystem.sapm(d_ghi[9], d_temp[9], panel)
-
-
-system = pvsystem.PVSystem(surface_tilt=tilt, surface_azimuth=az,
-                  module_parameters=panel,
-                  inverter_parameters=inversor)
-
-#%%
-
-#specify 2 inverters with 952 panels total (476 each)
-system.module_parameters['pdc0'] = 205 #
-system.module_parameters['gamma_pdc'] = -0.004 #temperature efficiency loss
-system.modules_per_string=68 #476
-system.strings_per_inverter=7
-
-  
-#%%
 
 
 #%% Desde codigo monica zamora, importacion de librerias
@@ -302,3 +263,24 @@ plt.show()
 # Ixx at reference conditions
 # FD
 # Fraction of diffuse irradiance used by module
+
+#%%
+
+# Paco
+# AC power rating of the inverter. [W]
+# Pdco
+# DC power input that results in Paco output at reference voltage Vdco. [W]
+# Vdco
+# DC voltage at which the AC power rating is achieved with Pdco power input. [V]
+# Pso
+# DC power required to start the inversion process, or self-consumption by inverter, strongly influences inverter efficiency at low power levels. [W]
+# C0
+# Parameter defining the curvature (parabolic) of the relationship between AC power and DC power at the reference operating condition. [1/W]
+# C1
+# Empirical coefficient allowing Pdco to vary linearly with DC voltage input. [1/V]
+# C2
+# Empirical coefficient allowing Pso to vary linearly with DC voltage input. [1/V]
+# C3
+# Empirical coefficient allowing C0 to vary linearly with DC voltage input. [1/V]
+# Pnt
+# AC power consumed by the inverter at night (night tare). [W]
