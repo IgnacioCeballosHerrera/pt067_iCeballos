@@ -6,6 +6,7 @@ Created on Mon Nov  6 11:23:48 2023
 """
 
 import numpy as np
+import pandas as pd
 
 ''' 
 Idea de codigo:
@@ -47,30 +48,94 @@ Pseudocodigo:
 
 '''
 
-
 #autos que cargan por hora
-n_hora = np.array([1,1,1,1,1,1,2,2,\
-                       2,3,4,4,4,5,5,5,\
-                           4,4,4,3,3,2,2,2])
+n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
+    
 #potencia requerida por cada vehiculo kW
 dist_carga = np.array([22.4,44.6])
 
 #capacidad de banco de baterias de vehiculo kWh
-# capacidad = np.array([40, 60, 80])
 capacidad = np.array([20, 40, 60]) # por ahora corresponde a lo que van a cargar, no al total de lo que pueden cargar
 
 #cargadores disponibles
-cargadores_rapidos = 6 # Sobre 22 kW
+n_rapidos = 6 # Sobre 22 kW
 n_lentos = 3 # Bajo 22 kW
 
-demanda_hora = []
-for i in n_hora:
-    demanda_i = []
-    for j in range(i):
-        pot_carga = np.random.choice(dist_carga)
-        cap_carga = np.random.choice(capacidad)
-        horas_carga_j =  capacidad/pot_carga
+def crear_cargadores(n_rapidos, n_lentos, p_rapidos, p_lentos):
+    '''
+    Crea diccionarios con cargadores rapidos y lentos, que incluyen informacion 
+    de carga maxima y estado de uso (binario)
+    '''
+    rapidos = pd.DataFrame([], columns=['Estado','Potencia maxima'])
+    for j in range(n_rapidos):
+        nombre_j = 'Rapido '+ str(j)
+        rapidos.loc[nombre_j] = [0, p_lentos]
+    
+    lentos = pd.DataFrame([], columns=['Estado','Potencia maxima'])
+    for i in range(n_lentos):
+        nombre_i = 'Lento '+ str(i)
+        lentos.loc[nombre_i] = [0, p_lentos]
         
+    return rapidos, lentos
+
+#Creacion de cargadores lentos y rapidos con potencias maximas y estado desocupado por defecto
+Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, 40,10)
+
+def buscar_cargador(Rapidos, Lentos):
+    
+    '''
+    Busca un cargador para el vehiculo que solicita carga, devolviendo si hay cargador
+    disponible con busqueda=1, y en c_rapido o c_lento el indice del cargador asignado
+    Si busqueda=0 se seguira cno otro algoritmo para otorgar un lugar en la fila
+    '''
+    busqueda = 0
+    c_rapido = 0
+    c_lento = 0
+    for i in range(len(Rapidos)):
+        if Rapidos.iloc[i]['Estado'] == 0:
+            busqueda = 1
+            c_rapido = i
+            Rapidos.iloc[i]['Estado'] == 1
+            break
+    if busqueda == 0:
+        for i in range(len(Lentos)):
+            if Lentos.iloc[i]['Estado'] == 0:
+                busqueda = 1
+                c_lento = i
+                Lentos.iloc[i]['Estado'] == 1
+                break
+    
+    return busqueda, c_rapido, c_lento
+
+def carga(t_carga):
+    pot_carga = 40*np.ones(t_carga)
+    volt_carga = 10*np.ones(t_carga)
+    return pot_carga, volt_carga
+
+lista_espera = []
+
+for i in range(len(n_hora)):
+    
+    pot_carga_i = np.random.choice(dist_carga)
+    carga_i = np.random.choice(capacidad)
+    
+    tiempo_carga_i =  3600*carga_i/pot_carga_i #en segundos
+    
+    disponible, n_lento, n_rapido = buscar_cargador(Rapidos, Lentos)
+    
+    if disponible ==1:
+        a=1
+    else:
+        lista_espera.append([pot_carga, carga_i, tiempo_carga_i])
+    
+    potencia, voltaje = carga(tiempo_carga_i)
+    
+    
+    
+    
+    
+
+
 
         
     

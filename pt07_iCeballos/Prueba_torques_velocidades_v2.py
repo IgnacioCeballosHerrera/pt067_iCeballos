@@ -72,7 +72,6 @@ k_w = 10e-5 # perdidas por friccion de viento
 k_i = 0.1 # perdidas por hierro (magneticas)
 k_c = 0.8 #peridas por cobre (electricas)
  
-#%% FUNCION DE EFICIENCIA
 def eficiencia(torque, omega):
     '''
     Calcula la eficiencia para un estado de torque y una velodidad angular
@@ -82,7 +81,6 @@ def eficiencia(torque, omega):
     w = omega
     ef = (t*w) / (t*w + k_w*(w**3) + k_i*w + k_c*(t**2) + c)
     return ef
-#%%
 
 v_angulares = np.arange(5,50,5)
 torques = np.arange(10,200,10)
