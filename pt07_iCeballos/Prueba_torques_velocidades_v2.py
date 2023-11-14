@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-#%% FUNCION EXTRAER CSV
 def extraer_csvs(nombre_carpeta):
     '''
     Lee todos los csvs dentro de una carpeta y luego crea una lista con
@@ -37,8 +36,8 @@ def extraer_csvs(nombre_carpeta):
         # Concatena el DataFrame actual (df) al DataFrame principal (main_dataframe) a lo largo del eje 1 (columnas).
         # main_dataframe = pd.concat([main_dataframe, df], axis=1)
     return main_list
-#%%
-# Define la ruta de la carpeta que contiene archivos CSV.
+
+# Define la ruta de la carpeta que contiene archivos CSV
 directorio_carpeta = 'DataBuses_v2/C_abril_2020_v2'
 df_viajes = extraer_csvs(directorio_carpeta)
 
@@ -47,18 +46,15 @@ potencia_gen = np.zeros(0)
 velocidades = np.zeros(0)
 
 for i in df_viajes:
-    p_cons = i['Potencia Total Consumida']
-    p_gen = i['Potencia Total Generada']
-    vel = i['Velocidad']
-    
-    vel = np.array(vel)
-    p_gen = np.array(p_gen)
-    p_cons = np.array(p_cons)
+    p_cons = np.array(i['Potencia Total Consumida'])
+    p_gen = np.array(i['Potencia Total Generada'])
+    vel = np.array(i['Velocidad'])
     
     potencia_con = np.append(potencia_con, p_cons)
     potencia_gen = np.append(potencia_gen, p_gen)
     velocidades = np.append(velocidades , vel)
 
+# Radio de neumatica y eficiencia
 radio_neu = 0.25
 ef = 0.9
 
