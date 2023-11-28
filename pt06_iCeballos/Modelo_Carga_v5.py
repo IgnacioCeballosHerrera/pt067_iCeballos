@@ -3,6 +3,13 @@
 Created on Mon Nov  6 11:23:48 2023
 
 @author: Nacho
+
+Proximas tareas:
+    - Nivel de carga inicial y final
+    
+    - Tener una demanda por cargador
+    - Transformar el algoritmo de carga en una funcion
+    - Establecer distintos tipos de cargadores (comunicacion con codigo EK)
 """
 
 import numpy as np
@@ -12,6 +19,20 @@ import matplotlib.pyplot as plt
 import glob
 import random
 
+# Directorio con tipos de demanda
+directorio_carpeta = 'Datos_entrada/Demanda_carga'
+
+# Numero de cargadores
+n_rapidos = 8 # Sobre 22 kW
+n_lentos = 3 # Bajo 22 kW
+
+# Potencia maxima de cargador
+p_max_rapido = 150
+p_max_lento = 22
+
+# Cantidad de autos que llegan (por hora) y probabilidad de que lleguen (por minuto)
+n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
+probabilidad_carga_por_minuto = 1/60
 
 def demanda_en_dia(demanda_auto):
     '''
@@ -34,7 +55,6 @@ def demanda_en_dia(demanda_auto):
             base[i] = 0
     
     return base
-
 
 def extraer_csvs(nombre_carpeta):
     '''
@@ -65,7 +85,6 @@ def extraer_csvs(nombre_carpeta):
         # main_dataframe = pd.concat([main_dataframe, df], axis=1)
     return main_list
 
-
 def buscar_cargador(Rapidos): # def buscar_cargador(Rapidos, Lentos):
     '''
     Busca un cargador para el vehiculo que solicita carga, devolviendo si hay cargador
@@ -85,7 +104,6 @@ def buscar_cargador(Rapidos): # def buscar_cargador(Rapidos, Lentos):
     
     return busqueda, c_rapido #, c_lento
 
-
 def crear_cargadores(n_rapidos, n_lentos, p_rapidos, p_lentos):
     '''
     Crea diccionarios con cargadores rapidos y lentos, que incluyen informacion 
@@ -103,7 +121,6 @@ def crear_cargadores(n_rapidos, n_lentos, p_rapidos, p_lentos):
         
     return rapidos, lentos
 
-
 def demanda_a_minutos(demanda_en_horas):
     '''
     Toma una demanda diaria en horas y la trnasforma en una demanda diaria pero en minutos
@@ -115,10 +132,10 @@ def demanda_a_minutos(demanda_en_horas):
     
     return n_minutos
 
-
 def demanda_prob(demanda_en_horas, prob_carga):
     '''
-    Toma una demanda diaria en horas y la trnasforma en una demanda diaria pero en minutos
+    Toma una cantidad de horas que llegan autos en cada hora, y una probabilidad de que efectivamente lleguen
+    para estabelcer una cantidad de autos que llegan por minuto durante el dia
     '''
     n_minutos = np.zeros(60*24)
     for i in range(len(n_minutos)):
@@ -128,40 +145,32 @@ def demanda_prob(demanda_en_horas, prob_carga):
             n_minutos[i] = n_hora[contador]
     return n_minutos
 
-
-# Define la ruta de la carpeta que contiene archivos CSV con los tipos de autos
-directorio_carpeta = 'Datos_entrada/Demanda_carga'
+def extraer_demandas(dataframe_autos):
+    '''
+    Toma el datafrmae de distintas cargas
+    '''
+    demandas = []
+    for j in range(len(dataframe_autos)):
+        demanda_0 = dataframe_autos[j]
+        demanda_0['tiempo [min]'] = demanda_0['tiempo [h]']*60
+        for j in range(len(demanda_0['tiempo [min]'])):
+            demanda_0['tiempo [min]'].iloc[j] = int(demanda_0['tiempo [min]'].iloc[j])
+        demandas.append(demanda_0)
+    return demandas
+    
+# Extraccion de todos los datos de demanda desde CSVs
 df_autos = extraer_csvs(directorio_carpeta)
+df_demandas = extraer_demandas(df_autos)
 
-# Importar demanda de carga
-# Por ahora se esta suponiendo que el cargador es capaz de cargar a la potencia solicitada,
-demanda_0 = pd.read_csv('Datos_entrada/Demanda_carga/prueba.csv')
+# Se definen los autos que cargan por hora y por minuto
+n_minutos = demanda_prob(n_hora, probabilidad_carga_por_minuto)
 
-# Crea una columna de tiempo en minutos y aproxima sus valores a enteros (a partir de la demanda importada)
-demanda_0['tiempo [min]'] = demanda_0['tiempo [h]']*60
-for j in range(len(demanda_0['tiempo [min]'])):
-    demanda_0['tiempo [min]'].iloc[j] = int(demanda_0['tiempo [min]'].iloc[j])
-
-
-# autos que cargan por hora y por minuto
-n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
-# n_minutos = demanda_a_minutos(n_hora)
-n_minutos = demanda_prob(n_hora, 1/60)
-
-# Info cargadores
-n_rapidos = 8 # Sobre 22 kW
-n_lentos = 3 # Bajo 22 kW
-
-p_max_rapido = 150
-p_max_lento = 22
-
-# Creacion de cargadores lentos y rapidos con potencias maximas y estado desocupado por defecto
+# Creacion de cargadores lentos y rapidos con potencias maximas, estado desocupado por defecto, y minuto en que se desocupan
 Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, p_max_rapido, p_max_lento)
 
-lista_espera = [] # Podria contener info de carga del tipo [pot_carga_j, carga_solicitada_j (J), tiempo_carga_j]
+# Lista de espera para acceder al cargador, y demanda electrica a la electrolinera
+lista_espera = [] 
 demanda = []
-
-
 
 for i in range(len(n_minutos)):
     
@@ -181,6 +190,7 @@ for i in range(len(n_minutos)):
         # Anade cada demanda al vector lista de espera
         for j in range(int(n_minutos[i])):
         # Esto deberia ser una distribucion para elegir vehiculos y sus caracteristicas
+            demanda_0 = df_demandas[random.randint(0,len(df_demandas)-1)]
             demanda_auto_j = demanda_0[['Potencia [kW]', 'tiempo [min]']].copy() #demanda_0[['Potencia [kW]', 'tiempo [min]', 'soc [%]']].copy()
             lista_espera.append(demanda_auto_j)
            
@@ -188,7 +198,7 @@ for i in range(len(n_minutos)):
         turno_j = lista_espera[0]
         t_total_carga = demanda_0['tiempo [min]'].iloc[-1] # en minutos
         match, cargador_j = buscar_cargador(Rapidos)
-        print(cargador_j)
+        # print(cargador_j)
         
         if match == 1: # es decir, si encontro cargador
             demanda_j = turno_j # de la forma [p_carga_j, t_carga_j, soc_carga_j] El auto empieza a carga
@@ -212,6 +222,7 @@ for j in demanda:
     demandas_por_auto.append(demanda_en_dia(j))
 demanda_diaria = abs(sum(demandas_por_auto))
 
+# Grafico de demanda en el dia
 plt.figure()
 plt.plot(demanda_diaria)
 plt.ylabel('Potencia [kW]')
@@ -219,7 +230,7 @@ plt.xlabel('Tiempo [min]')
 plt.grid()
 plt.show
 
-
+# Grafico de numero de cargas
 plt.figure()
 plt.plot(n_minutos)
 plt.ylabel('Numero de cargadores activos')
