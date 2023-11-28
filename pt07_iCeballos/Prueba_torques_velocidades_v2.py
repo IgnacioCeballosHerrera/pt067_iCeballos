@@ -38,7 +38,7 @@ def extraer_csvs(nombre_carpeta):
     return main_list
 
 # Define la ruta de la carpeta que contiene archivos CSV
-directorio_carpeta = 'DataBuses_v2/C_abril_2020_v2'
+directorio_carpeta = 'Datos_entrada/DataBuses_v2/C_abril_2020_v2'
 df_viajes = extraer_csvs(directorio_carpeta)
 
 potencia_con = np.zeros(0)
@@ -82,8 +82,8 @@ def eficiencia(torque, omega):
     ef = (t*w) / (t*w + k_w*(w**3) + k_i*w + k_c*(t**2) + c)
     return ef
 
-v_angulares = np.arange(5,50,5)
-torques = np.arange(10,200,10)
+v_angulares = np.arange(10,200,5)
+torques = np.arange(5,40)
 ef_tot = []
 for i in range(len(torques)):
     ef_i = []

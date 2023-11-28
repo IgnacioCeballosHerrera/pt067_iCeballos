@@ -48,18 +48,27 @@ Pseudocodigo:
 
 '''
 
+# Importacion demanda de carga
+# Por ahora se esta suponiendo que elcargador es capaz de cargar, y que todos los vehiculos
+# demandan potencia de la misma forma
+demanda_0 = pd.read_csv('Datos_entrada/Demanda_carga/prueba.csv')
+#%%
+
 #autos que cargan por hora
 n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
     
-#potencia requerida por cada vehiculo kW
-dist_carga = np.array([22.4,44.6])
+# #potencia requerida por cada vehiculo kW
+# dist_carga = np.array([22.4,44.6])
 
-#capacidad de banco de baterias de vehiculo kWh
-capacidad = np.array([20, 40, 60]) # por ahora corresponde a lo que van a cargar, no al total de lo que pueden cargar
+# #capacidad de banco de baterias de vehiculo kWh
+# capacidad = np.array([20, 40, 60]) # por ahora corresponde a lo que van a cargar, no al total de lo que pueden cargar
 
-#cargadores disponibles
+# Info cargadores
 n_rapidos = 6 # Sobre 22 kW
 n_lentos = 3 # Bajo 22 kW
+
+p_max_rapido = 150
+p_max_lento = 22
 
 def crear_cargadores(n_rapidos, n_lentos, p_rapidos, p_lentos):
     '''
@@ -79,10 +88,9 @@ def crear_cargadores(n_rapidos, n_lentos, p_rapidos, p_lentos):
     return rapidos, lentos
 
 #Creacion de cargadores lentos y rapidos con potencias maximas y estado desocupado por defecto
-Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, 40,10)
+Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, p_max_rapido, p_max_lento)
 
 def buscar_cargador(Rapidos, Lentos):
-    
     '''
     Busca un cargador para el vehiculo que solicita carga, devolviendo si hay cargador
     disponible con busqueda=1, y en c_rapido o c_lento el indice del cargador asignado
@@ -91,6 +99,7 @@ def buscar_cargador(Rapidos, Lentos):
     busqueda = 0
     c_rapido = 0
     c_lento = 0
+    
     for i in range(len(Rapidos)):
         if Rapidos.iloc[i]['Estado'] == 0:
             busqueda = 1
@@ -107,28 +116,140 @@ def buscar_cargador(Rapidos, Lentos):
     
     return busqueda, c_rapido, c_lento
 
-def carga(t_carga):
-    pot_carga = 40*np.ones(t_carga)
+def carga(t_carga, p_carga):
+    '''
+    Funcion ultra simplista para establecer la potencia de carga
+    '''
+    pot_carga = p_carga*np.ones(t_carga)
     volt_carga = 10*np.ones(t_carga)
-    return pot_carga, volt_carga
+    return pot_carga#, volt_carga
 
-lista_espera = []
+lista_espera = [] # contiene info de carga del tipo [pot_carga_j, carga_j, tiempo_carga_j]
+demanda = []
+
+#%%
 
 for i in range(len(n_hora)):
+    if n_hora[i] != 0:
+        for j in range(len(n_hora[i])):
+        
+        demanda_j = [] # vector demanda de cada auto
+        # toda esta parte debera ser reemplazada al integra lo de EK
+        pot_carga_j = np.random.choice(dist_carga) # eleccoines aleatorias para la potencia maxima de carga y 
+        carga_j = np.random.choice(capacidad) # la capacidad de almacenamiento
+        tiempo_carga_j =  3600*carga_j/pot_carga_j # en segundos    
+        
+            lista_espera.append(n_hora[i]) #[pot_carga_j, carga_j, tiempo_carga_j]
+                
+        
+        
+        
+    for j in range(n_hora[i]):
     
-    pot_carga_i = np.random.choice(dist_carga)
-    carga_i = np.random.choice(capacidad)
-    
-    tiempo_carga_i =  3600*carga_i/pot_carga_i #en segundos
-    
-    disponible, n_lento, n_rapido = buscar_cargador(Rapidos, Lentos)
-    
-    if disponible ==1:
-        a=1
+    # Caso1: no hay demanda ni autos en la lista de espera
+    if n_hora[i] ==0 and len(lista_espera) == 0:
+        print('No hay demanda a esta hora')
+        
+    # Caso2: no hay demanda pero si hay lista de espera
+    elif n_hora[i] == 0 and len(lista_espera) != 0:
+        # correr lista de espera
+        print('correr lista de espera, algoritmo en proceso')
+        
+        
+        demanda_j = [] # vector demanda de cada auto
+        # toda esta parte debera ser reemplazada al integra lo de EK
+        pot_carga_j = np.random.choice(dist_carga) # eleccoines aleatorias para la potencia maxima de carga y 
+        carga_j = np.random.choice(capacidad) # la capacidad de almacenamiento
+        tiempo_carga_j =  3600*carga_j/pot_carga_j #en segundos
+        
+        potencia
+        
+    # Caso3: hay demanda pero no hay lista de espera
     else:
-        lista_espera.append([pot_carga, carga_i, tiempo_carga_i])
+        for j in range(n_hora[i]):
+            
+            demanda_j = [] # vector demanda de cada auto
+            # toda esta parte debera ser reemplazada al integra lo de EK
+            pot_carga_j = np.random.choice(dist_carga) # eleccoines aleatorias para la potencia maxima de carga y 
+            carga_j = np.random.choice(capacidad) # la capacidad de almacenamiento
+            tiempo_carga_j =  3600*carga_j/pot_carga_j #en segundos
+            
+            '''
+            Aca comienza el algoritmo para elegir cargador, queda a la lista de espera, etc
+            '''
+            disponible, n_lento, n_rapido = buscar_cargador(Rapidos, Lentos)
+            
+            
+            if disponible == 1 and len(lista_espera) == 0:
+                # Si hay cargador disponible, se establece si este es rapido o lento, se calcula la funcion demanda de potencia
+                # y luego se crea una lista demanda para cada auto, que contiene el vector demanda, la hora de inicio de carga y
+                # el cargador usado
+                n_usado = max(n_lento, n_rapido)
+                demanda_j = carga(tiempo_carga_j, pot_carga_j)
+                demanda.append([demanda_j, i, n_usado])
+            elif:
+                lista_espera.append([pot_carga_j, carga_j, tiempo_carga_j])
+            
+        
+        
+        potencia, voltaje = carga(tiempo_carga_i)
+
+
+
+
+#%%
+for i in range(len(n_hora)):
+    # Caso1: no hay demanda ni autos en la lista de espera
+    if n_hora[i] ==0 and len(lista_espera) == 0:
+        print('No hay demanda a esta hora')
+        
+    # Caso2: no hay demanda pero si hay lista de espera
+    elif n_hora[i] == 0 and len(lista_espera) != 0:
+        # correr lista de espera
+        print('correr lista de espera, algoritmo en proceso')
+        
+        
+        demanda_j = [] # vector demanda de cada auto
+        # toda esta parte debera ser reemplazada al integra lo de EK
+        pot_carga_j = np.random.choice(dist_carga) # eleccoines aleatorias para la potencia maxima de carga y 
+        carga_j = np.random.choice(capacidad) # la capacidad de almacenamiento
+        tiempo_carga_j =  3600*carga_j/pot_carga_j #en segundos
+        
+        potencia
+        
+    # Caso3: hay demanda pero no hay lista de espera
+    else:
+        for j in range(n_hora[i]):
+            
+            demanda_j = [] # vector demanda de cada auto
+            # toda esta parte debera ser reemplazada al integra lo de EK
+            pot_carga_j = np.random.choice(dist_carga) # eleccoines aleatorias para la potencia maxima de carga y 
+            carga_j = np.random.choice(capacidad) # la capacidad de almacenamiento
+            tiempo_carga_j =  3600*carga_j/pot_carga_j #en segundos
+            
+            '''
+            Aca comienza el algoritmo para elegir cargador, queda a la lista de espera, etc
+            '''
+            disponible, n_lento, n_rapido = buscar_cargador(Rapidos, Lentos)
+            
+            
+            if disponible == 1 and len(lista_espera) == 0:
+                # Si hay cargador disponible, se establece si este es rapido o lento, se calcula la funcion demanda de potencia
+                # y luego se crea una lista demanda para cada auto, que contiene el vector demanda, la hora de inicio de carga y
+                # el cargador usado
+                n_usado = max(n_lento, n_rapido)
+                demanda_j = carga(tiempo_carga_j, pot_carga_j)
+                demanda.append([demanda_j, i, n_usado])
+            elif:
+                lista_espera.append([pot_carga_j, carga_j, tiempo_carga_j])
+            
+        
+        
+        potencia, voltaje = carga(tiempo_carga_i)
+        
+        
     
-    potencia, voltaje = carga(tiempo_carga_i)
+    
     
     
     
