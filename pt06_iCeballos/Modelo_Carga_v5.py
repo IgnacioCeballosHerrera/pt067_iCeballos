@@ -18,6 +18,8 @@ from datetime import time, date
 import matplotlib.pyplot as plt
 import glob
 import random
+import warnings
+warnings.filterwarnings("ignore")
 
 # Directorio con tipos de demanda
 directorio_carpeta = 'Datos_entrada/Demanda_carga'
@@ -214,6 +216,61 @@ for i in range(len(n_minutos)):
         if Rapidos['Minuto liberacion'].iloc[j] == i:
             Rapidos['Estado'].iloc[j] = 0
             Rapidos['Minuto liberacion'].iloc[j] = 0
+
+#%%
+
+a = demanda[0]
+a_new = pd.DataFrame([], columns=['tiempo [min]','Potencia [kW]'])
+repeticiones = 1
+a_new = a_new.append(a.iloc[0])
+# rep_acumulado = 0
+#%%
+for i in range(1,len(a)):
+    # si falta se rellena con el promedio
+    if (a.iloc[i]['tiempo [min]'] - a.iloc[i-1]['tiempo [min]']) == 2:
+        
+    
+    # si no se repite el minuto, lo agrega sin mas
+    elif a.iloc[i]['tiempo [min]'] != a.iloc[i-1]['tiempo [min]']:
+        repeticiones = 1 # se resetea el contador de repeticiones
+        a_new = a_new.append(abs(a.iloc[i]))
+    # si se repiten se guarda el promedio (considerando todas las repeticiones de ese minuto)   
+    elif a.iloc[i]['tiempo [min]'] == a.iloc[i-1]['tiempo [min]']:
+        repeticiones = repeticiones + 1
+        anterior = a_new.iloc[-1] # se guarda el anterior
+        posicion_ultimo = len(a_new['tiempo [min]'])
+        a_new.iloc[posicion_ultimo-1]['Potencia [kW]'] = (abs((repeticiones-1)*anterior['Potencia [kW]']) + abs(a.iloc[i]['Potencia [kW]']))/repeticiones
+    
+a_new.reset_index(inplace = True, drop = True) # resetear los indices
+
+#%%
+
+demanda_auto = demanda[0]
+
+potencia = np.array(demanda_auto['Potencia [kW]'])
+minutos = np.array(demanda_auto['tiempo [min]'])
+
+base = np.arange(60*24)
+k = 0 #contador
+#%%
+for i in range(len(base)):
+    if k == len(potencia):
+        break
+    if base[i] == minutos[k]:
+        base[i] = potencia[k]
+        k = k+1
+    elif base[i] != minutos[k]:
+        base[i] = 0
+
+
+#%%
+demanda_diaria_lista = []
+for k in demanda:
+    demanda_diaria_lista.append(demanda[k]['Potencia [kW]'])
+
+
+
+#%%
 
 
 # Inserta la demanda de cada auto en un vector dia (en minutos)
