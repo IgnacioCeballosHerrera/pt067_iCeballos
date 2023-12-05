@@ -8,7 +8,7 @@ Proximas tareas:
     - Nivel de carga inicial y final
     
     - Tener una demanda por cargador
-    - Transformar el algoritmo de carga en una funcion
+    - Transformar el algoritmo de carga en una funcion (opcional)
     - Establecer distintos tipos de cargadores (comunicacion con codigo EK)
 """
 
@@ -36,7 +36,7 @@ p_max_lento = 22
 n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
 probabilidad_carga_por_minuto = 1/60
 
-def demanda_en_dia(demanda_auto):
+def ubicar_demanda_en_dia(demanda_auto):
     '''
     Toma un dataframe que contiene la potencia consumida en ciertos minutos del dia por un vehiculo
     y genera un vector de numpy con esta misma demanda inserta en el dia completo
@@ -44,17 +44,16 @@ def demanda_en_dia(demanda_auto):
     potencia = np.array(demanda_auto['Potencia [kW]'])
     minutos = np.array(demanda_auto['tiempo [min]'])
     
-    base = np.arange(60*24)
     k = 0 #contador
-    
+    base = np.zeros(60*24)
     for i in range(len(base)):
         if k == len(potencia):
             break
-        if base[i] == minutos[k]:
+        if i == minutos[k]:
             base[i] = potencia[k]
             k = k+1
-        else:
-            base[i] = 0
+        # else:
+        #     base[i] = 0
     
     return base
 
@@ -159,7 +158,35 @@ def extraer_demandas(dataframe_autos):
             demanda_0['tiempo [min]'].iloc[j] = int(demanda_0['tiempo [min]'].iloc[j])
         demandas.append(demanda_0)
     return demandas
+
+def promediar_en_mismo_minuto(demanda_sin_corregir_duplicados):
+    '''
+    Toma el dataframe de demanda y elimina los minutos repetidos haciendo un prmedio entre sus potencias
+    Devolviendo otro datafrme corregido
+    '''
+    a = demanda_sin_corregir_duplicados
+    a_new = pd.DataFrame([], columns=['tiempo [min]','Potencia [kW]'])
+    repeticiones = 1
+    a_new = a_new.append(a.iloc[0])
     
+    for i in range(1,len(a)):
+        # Falta completar con l ainterpolacion par ael caso en que faltan minutos
+        # if (a.iloc[i]['tiempo [min]'] - a.iloc[i-1]['tiempo [min]']) == 2:
+        #     repeticiones = 1
+        # si no se repite el minuto, lo agrega sin mas
+        if a.iloc[i]['tiempo [min]'] != a.iloc[i-1]['tiempo [min]']:
+            repeticiones = 1 # se resetea el contador de repeticiones
+            a_new = a_new.append(abs(a.iloc[i]))
+        # si se repiten se guarda el promedio (considerando todas las repeticiones de ese minuto)   
+        elif a.iloc[i]['tiempo [min]'] == a.iloc[i-1]['tiempo [min]']:
+            repeticiones = repeticiones + 1
+            anterior = a_new.iloc[-1] # se guarda el anterior
+            posicion_ultimo = len(a_new['tiempo [min]'])
+            a_new.iloc[posicion_ultimo-1]['Potencia [kW]'] = (abs((repeticiones-1)*anterior['Potencia [kW]']) + abs(a.iloc[i]['Potencia [kW]']))/repeticiones
+    a_new.reset_index(inplace = True, drop = True) # resetear los indices
+    
+    return a_new
+
 # Extraccion de todos los datos de demanda desde CSVs
 df_autos = extraer_csvs(directorio_carpeta)
 df_demandas = extraer_demandas(df_autos)
@@ -174,6 +201,7 @@ Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, p_max_rapido, p_max_lento
 lista_espera = [] 
 demanda = []
 
+'''   LOOP DE USO CARGADORES  '''
 for i in range(len(n_minutos)):
     
     ''' ALGORITMO DE USO CARGADORES
@@ -217,71 +245,18 @@ for i in range(len(n_minutos)):
             Rapidos['Estado'].iloc[j] = 0
             Rapidos['Minuto liberacion'].iloc[j] = 0
 
-#%%
-
-a = demanda[0]
-a_new = pd.DataFrame([], columns=['tiempo [min]','Potencia [kW]'])
-repeticiones = 1
-a_new = a_new.append(a.iloc[0])
-# rep_acumulado = 0
-#%%
-for i in range(1,len(a)):
-    # si falta se rellena con el promedio
-    if (a.iloc[i]['tiempo [min]'] - a.iloc[i-1]['tiempo [min]']) == 2:
-        
-    
-    # si no se repite el minuto, lo agrega sin mas
-    elif a.iloc[i]['tiempo [min]'] != a.iloc[i-1]['tiempo [min]']:
-        repeticiones = 1 # se resetea el contador de repeticiones
-        a_new = a_new.append(abs(a.iloc[i]))
-    # si se repiten se guarda el promedio (considerando todas las repeticiones de ese minuto)   
-    elif a.iloc[i]['tiempo [min]'] == a.iloc[i-1]['tiempo [min]']:
-        repeticiones = repeticiones + 1
-        anterior = a_new.iloc[-1] # se guarda el anterior
-        posicion_ultimo = len(a_new['tiempo [min]'])
-        a_new.iloc[posicion_ultimo-1]['Potencia [kW]'] = (abs((repeticiones-1)*anterior['Potencia [kW]']) + abs(a.iloc[i]['Potencia [kW]']))/repeticiones
-    
-a_new.reset_index(inplace = True, drop = True) # resetear los indices
-
-#%%
-
-demanda_auto = demanda[0]
-
-potencia = np.array(demanda_auto['Potencia [kW]'])
-minutos = np.array(demanda_auto['tiempo [min]'])
-
-base = np.arange(60*24)
-k = 0 #contador
-#%%
-for i in range(len(base)):
-    if k == len(potencia):
-        break
-    if base[i] == minutos[k]:
-        base[i] = potencia[k]
-        k = k+1
-    elif base[i] != minutos[k]:
-        base[i] = 0
-
-
-#%%
-demanda_diaria_lista = []
-for k in demanda:
-    demanda_diaria_lista.append(demanda[k]['Potencia [kW]'])
-
-
-
-#%%
-
-
-# Inserta la demanda de cada auto en un vector dia (en minutos)
-demandas_por_auto = []
+# Realiza los ultimos ajustes para poder desplegar la demanda 
+demanda_total_por_auto = []
 for j in demanda:
-    demandas_por_auto.append(demanda_en_dia(j))
-demanda_diaria = abs(sum(demandas_por_auto))
+    # Primero elimina minutos repetidos para evitar lecturas erroneas
+    j_new = promediar_en_mismo_minuto(j) 
+    # Luego inserta la demanda_j en una demanda de dia completo (utilizando los minutos de la demanda_j para ubicarla)
+    demanda_total_por_auto.append(ubicar_demanda_en_dia(j_new))
+demanda_total = abs(sum(demanda_total_por_auto))
 
 # Grafico de demanda en el dia
 plt.figure()
-plt.plot(demanda_diaria)
+plt.plot(demanda_total)
 plt.ylabel('Potencia [kW]')
 plt.xlabel('Tiempo [min]')
 plt.grid()
@@ -293,4 +268,3 @@ plt.plot(n_minutos)
 plt.ylabel('Numero de cargadores activos')
 plt.xlabel('Tiempo [min]')
 plt.show
-    
