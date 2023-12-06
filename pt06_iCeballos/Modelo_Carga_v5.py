@@ -24,6 +24,10 @@ warnings.filterwarnings("ignore")
 # Directorio con tipos de demanda
 directorio_carpeta = 'Datos_entrada/Demanda_carga'
 
+# Se define si la carga se finaliza por tiempo de carga deseado o soc final deseado
+tipo_carga = 0 # por soc #
+# tipo_carga = 1 # por tiempo
+
 # Numero de cargadores
 n_rapidos = 8 # Sobre 22 kW
 n_lentos = 3 # Bajo 22 kW
@@ -35,6 +39,15 @@ p_max_lento = 22
 # Cantidad de autos que llegan (por hora) y probabilidad de que lleguen (por minuto)
 n_hora = np.array([1,1,1,1,1,1,2,2, 2,3,4,4,4,5,5,5, 4,4,4,3,3,2,2,2])
 probabilidad_carga_por_minuto = 1/60
+
+distribucion_soc_inicial = [20,20,40,40,40,60]
+
+# Creacion de dataframe para establecer los limites de carga
+limites_carga = pd.DataFrame([], columns=['Inicial','Final','Tiempo de carga'])
+limites_carga['Inicial'] = [20,20,20,40,40,40,60,60] # En %
+limites_carga['Final'] = [60,80,90,60,80,90,80,90] # En %
+limites_carga['Tiempo de carga'] = [20,30,40,15,20,30,15,20] # En minutos
+
 
 def ubicar_demanda_en_dia(demanda_auto):
     '''
@@ -198,35 +211,52 @@ n_minutos = demanda_prob(n_hora, probabilidad_carga_por_minuto)
 Rapidos, Lentos = crear_cargadores(n_rapidos,n_lentos, p_max_rapido, p_max_lento)
 
 # Lista de espera para acceder al cargador, y demanda electrica a la electrolinera
+lista_espera_primitiva= []
 lista_espera = [] 
 demanda = []
 
-'''   LOOP DE USO CARGADORES  '''
-for i in range(len(n_minutos)):
+''' ALGORITMO DE USO CARGADORES
+  Para cada minuto del dia realiza lo siguiente:
     
-    ''' ALGORITMO DE USO CARGADORES
-    Para cada minuto del dia realiza lo siguiente:
+    - Evalua si hay demanda en cada minuto, y en caso de haber la agrega a la lista de espera (primer bucle (for))
+    
+    - Evalua si la lista de espera es vacia o no. Para cada sujeto de la lista de espera intenta hacer match (segundo bucle (while))
+        con un cargador desocupado, al que se le asigna una carga, un estado de ocupado, y una hora en que se desocupara.
+        Si no logra hacer match, entonces se rompe el bucle, asumiendo que no hay cargadores desocupados para niun auto este minuto
         
-        - Evalua si hay demanda en cada minuto, y en caso de haber la agrega a la lista de espera (primer bucle (for))
-        
-        - Evalua si la lista de espera es vacia o no. Para cada sujeto de la lista de espera intenta hacer match (segundo bucle (while))
-            con un cargador desocupado, al que se le asigna una carga, un estado de ocupado, y una hora en que se desocupara.
-            Si no logra hacer match, entonces se rompe el bucle, asumiendo que no hay cargadores desocupados para niun auto este minuto
-            
-        - Evalua si se desocupan cargadores terminando el minuto, y los cambia a modo desocupado (tercer bucle (for))
-    '''
+    - Evalua si se desocupan cargadores terminando el minuto, y los cambia a modo desocupado (tercer bucle (for))
+'''
+for i in range(len(n_minutos)):
     minutos = i
     if n_minutos[i] != 0: # Evalua si la demanda es nula, sino debe ponerse a la lista
         # Anade cada demanda al vector lista de espera
         for j in range(int(n_minutos[i])):
         # Esto deberia ser una distribucion para elegir vehiculos y sus caracteristicas
-            demanda_0 = df_demandas[random.randint(0,len(df_demandas)-1)]
-            demanda_auto_j = demanda_0[['Potencia [kW]', 'tiempo [min]']].copy() #demanda_0[['Potencia [kW]', 'tiempo [min]', 'soc [%]']].copy()
+            demanda_i = df_demandas[random.randint(0,len(df_demandas)-1)]
+            tiempo_carga = limites_carga.iloc[random.randint(0,len(limites_carga)-1)]
+            demanda_auto_jv1 = demanda_i[['Potencia [kW]', 'tiempo [min]', 'soc [%]']].copy() #demanda_i[['Potencia [kW]', 'tiempo [min]', 'soc [%]']].copy()
+            
+            # Ahora es necesario recortar la demanda (adaptarla) a los requisitos de carga del sujeto
+            if tipo_carga == 0: # Si la carga se limitara por soc final deseado
+                corte_inferior = tiempo_carga['Inicial']/100
+                corte_superior = tiempo_carga['Final']/100
+                cortada_inf = demanda_auto_jv1.loc[demanda_auto_jv1['soc [%]'] >= corte_inferior]
+                demanda_auto_j = cortada_inf.loc[cortada_inf['soc [%]'] <= corte_superior]
+                
+            elif tipo_carga == 1: # Si la carga se limitara por tiempo total deseado
+                corte_inferior = tiempo_carga['Inicial']/100
+                corte_superior = tiempo_carga['Tiempo de carga']
+                tf_deseado = demanda_auto_jv1.iloc[0]['tiempo [min]'] + corte_superior # se calcula el tiempo final deseado
+                
+                cortada_inf = demanda_auto_jv1.loc[demanda_auto_jv1['soc [%]'] >= corte_inferior]
+                demanda_auto_j = cortada_inf.loc[cortada_inf['tiempo [min]'] <= tf_deseado]
+            
             lista_espera.append(demanda_auto_j)
-           
+            lista_espera_primitiva.append(demanda_auto_jv1)
+     
     while len(lista_espera) > 0:
         turno_j = lista_espera[0]
-        t_total_carga = demanda_0['tiempo [min]'].iloc[-1] # en minutos
+        t_total_carga = demanda_i['tiempo [min]'].iloc[-1] # en minutos
         match, cargador_j = buscar_cargador(Rapidos)
         # print(cargador_j)
         
@@ -253,6 +283,7 @@ for j in demanda:
     # Luego inserta la demanda_j en una demanda de dia completo (utilizando los minutos de la demanda_j para ubicarla)
     demanda_total_por_auto.append(ubicar_demanda_en_dia(j_new))
 demanda_total = abs(sum(demanda_total_por_auto))
+
 
 # Grafico de demanda en el dia
 plt.figure()
