@@ -5,7 +5,7 @@ Created on Mon Nov  6 11:23:48 2023
 @author: Nacho
 
 Proximas tareas:
-    - Nivel de carga inicial y final
+    - Autonomia 
     
     - Tener una demanda por cargador
     - Transformar el algoritmo de carga en una funcion (opcional)

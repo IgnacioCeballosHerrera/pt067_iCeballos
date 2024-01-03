@@ -9,7 +9,7 @@ Created on Wed Sep 27 07:42:55 2023
 from pvlib import location
 from pvlib import irradiance
 from pvlib import pvsystem
-from pvlib import inverter
+# from pvlib import inverter
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
@@ -26,7 +26,7 @@ az = 180
 t_panel = 25
 
 # Importacion y lectura de TMY (PARA FORMATO EXPLORADOR SOLAR)
-archivo_tmy = 'DHTMY_E_T6854N.csv'
+archivo_tmy = 'pt067_iCeballos/pt06_iCeballos/DHTMY_E_T6854N.csv'
 data_tmy = pd.read_csv(archivo_tmy, skiprows = 41)
 location_tmy = pd.read_csv(archivo_tmy, skiprows = 11, skipfooter = 8802-14,\
                            header = None, engine = 'python')
@@ -86,9 +86,10 @@ panel = sandia_modules['Kyocera_Solar_KD205GX_LP__2008__E__']
 out_panel = []
 v_out_panel = []
 p_out_panel = []
-for k in d_ghi:
+for k in range(len(d_ghi)):
     # Extraccion de salida del panel con limpieza de nans
-    out_k = pd.Series(pvlib.pvsystem.sapm(k, t_panel, panel))
+    k_ponderada = ghi[k]*np.cos(np.radians(aoi[k].iloc[0]))
+    out_k = pd.Series(pvlib.pvsystem.sapm(k_ponderada, t_panel, panel))
     out_k.fillna(0,inplace=True)
     out_panel.append(out_k)
     # Calculo de voltaje y potencia de salida para cada hora
@@ -99,15 +100,7 @@ for k in d_ghi:
     
 v_out_panel = np.array(v_out_panel)
 p_out_panel = np.array(p_out_panel)
-#%%
-plt.figure()
-plt.plot(v_out_panel)
-plt.title('Voltaje un panel')
 
-plt.figure()
-plt.plot(p_out_panel)
-plt.title('Potencia un panel')
-#%%
 # Numero de paneles en serie y paralelo
 ns = 15
 np = 1
@@ -119,9 +112,20 @@ p_out_arreglo = np*ns*p_out_panel
 cec_inverters = pvlib.pvsystem.retrieve_sam('cecinverter')
 #cols = [col for col in cec_inverters.columns if 'Xantrex' in col] # use this to look for strings in the catalog, it's huge
 inversor = cec_inverters['Schneider_Electric_Solar_Inverters_USA___Inc___GT100_480__480V_']
-#%%
+
+
 # Devuelve potencia AC
 p_ac = pvlib.inverter.sandia(v_out_arreglo, p_out_arreglo, inversor)
+
+plt.figure()
+plt.plot(v_out_panel)
+plt.title('Voltaje un panel')
+
+plt.figure()
+plt.plot(p_out_panel)
+plt.title('Potencia un panel')
+
+
 
 plt.figure()
 plt.plot(p_ac)
@@ -130,33 +134,6 @@ plt.title('Potencia ac salida inversor')
 
 # pvlib.inverter.sandia(v_dc, p_dc, inverter)
 
-
-
-
-#%% Desde codigo monica zamora, importacion de librerias
-
-
-cec_inverters = pvlib.pvsystem.retrieve_sam('cecinverter')
-#cols = [col for col in cec_inverters.columns if 'Xantrex' in col] # use this to look for strings in the catalog, it's huge
-#inverter = cec_inverters['Xantrex_Technologies__Inc___GT100_480_480V__CEC_2007_']
-inverter=cec_inverters['Schneider_Electric_Solar_Inverters_USA___Inc___GT100_480__480V_']
-system = pvsystem.PVSystem(surface_tilt=10, surface_azimuth=180,
-                  module_parameters=module,
-                  inverter_parameters=inverter) #only takes one single module
-
-#specify 2 inverters with 952 panels total (476 each)
-system.module_parameters['pdc0'] = 205 #
-system.module_parameters['gamma_pdc'] = -0.004 #temperature efficiency loss
-system.modules_per_string=68 #476
-system.strings_per_inverter=7
-
-#________Create model chain
-mc = ModelChain(system,fm.location, aoi_model='physical',name='test')
-mc.transposition_model = 'perez'
-
-#________Run the model
-weather=forecast_data[['ghi', 'dni', 'dhi', 'temp_air', 'wind_speed']]
-mc.run_model(times=weather.index, weather=weather)
 
 
 #%% PRODUCCION SIMPLIFICADA CON ECUACIONES SOLARES
