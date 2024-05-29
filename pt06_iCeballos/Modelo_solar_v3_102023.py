@@ -113,24 +113,29 @@ cec_inverters = pvlib.pvsystem.retrieve_sam('cecinverter')
 #cols = [col for col in cec_inverters.columns if 'Xantrex' in col] # use this to look for strings in the catalog, it's huge
 inversor = cec_inverters['Schneider_Electric_Solar_Inverters_USA___Inc___GT100_480__480V_']
 
-
+#%%
 # Devuelve potencia AC
 p_ac = pvlib.inverter.sandia(v_out_arreglo, p_out_arreglo, inversor)
 
 plt.figure()
+plt.xlabel('Hora del día [Hr]')
+plt.ylabel('Voltaje [V]')
 plt.plot(v_out_panel)
-plt.title('Voltaje un panel')
+plt.title('Voltaje de una unidad de panel')
 
 plt.figure()
+plt.xlabel('Hora del día [Hr]')
+plt.ylabel('Potencia [W]')
 plt.plot(p_out_panel)
-plt.title('Potencia un panel')
+plt.title('Potencia generada por un panel')
 
 
 
 plt.figure()
 plt.plot(p_ac)
-plt.ylabel('[W]')
-plt.title('Potencia ac salida inversor')
+plt.xlabel('Hora del día [Hr]')
+plt.ylabel('Potencia [W]')
+plt.title('Potencia ac a la salida del inversor')
 
 # pvlib.inverter.sandia(v_dc, p_dc, inverter)
 
